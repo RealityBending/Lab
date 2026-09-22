@@ -51,9 +51,10 @@ These apply in every project. Each links to its reason.
 6. **`sussexneuro` is a shared group pool.** Look at who is using it before
    submitting there, and prefer our own quotas when they are free.
    ([artemis.md#sussexneuro](artemis.md#sussexneuro))
-7. **Status requests are cheap.** Report `squeue` state plus the latest
-   progress line per chain and an ETA — not a log dump.
-   ([jobs.md#monitoring](jobs.md#monitoring))
+7. **Status requests get a full, cheap answer.** Whether each job is running
+   and since when, a table of each chain's iteration progress per shard, an
+   extrapolated ETA, and a warning if a job risks hitting its wall time — not
+   a log dump. ([jobs.md#status-reports](jobs.md#status-reports))
 8. **Test runs get their own output directory**, so they can never be adopted
    as production results. ([jobs.md#test-runs](jobs.md#test-runs))
 9. **Never touch another person's account** (permissions, files, jobs). Ask

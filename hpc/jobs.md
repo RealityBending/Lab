@@ -152,18 +152,74 @@ Shard ids need not be contiguous; what matters is the total chain count.
 
 ## Monitoring
 
-When asked for status, report for each job: **state** (`squeue`), and for
-each chain the **highest iteration seen** with a rough **ETA** (iterations so
-far vs elapsed `TIME`, extrapolated to warmup + samples). Two commands, not a
-log dump:
+### Status reports
+
+When the user just asks "how are the jobs doing?", the answer is always the
+same shape — not a log dump, and not only `squeue`. Gather it in **one or two
+SSH calls**:
 
 ```bash
-./hpc queue                  # STATE, TIME, TIME_LEFT, reason if PENDING
+./hpc queue                  # STATE, TIME (elapsed), TIME_LEFT, reason if PENDING
 ./hpc progress <model>       # latest 'Chain N Iteration:' per chain + REPORT + errors
+# start times, if the driver's queue format lacks them:
+./hpc sh "squeue -u \$USER -o '%.14i %.12P %.28j %.8T %.20S %.12M %.12L %R'"
 ```
 
 (If a project lacks `progress`:
 `./hpc sh "grep -h 'Iteration\|REPORT' <scratch>/fit_<model>_*.out | tail -40"`.)
+
+**The report contains:**
+
+1. **Is it running, and since when.** Per job/array task: state; for
+   `RUNNING`, the start time and elapsed time (and node, if it matters); for
+   `PENDING`, the reason (`Priority`, `Resources`, `QOSMaxCpuPerUserLimit`, a
+   dependency) and, for a CPU-limit reason, whether it is the partition cap or
+   the account's 550 ([artemis.md#quotas](artemis.md#quotas)). Finished or
+   failed tasks since the last check: exit state from `sacct`, and the
+   `REPORT` line or the error.
+2. **Progress, per chain per shard**, as a table: latest iteration / total,
+   percent, and phase (warmup or sampling).
+3. **ETA**, extrapolated per chain, rolled up to the shard (its slowest
+   chain) and to the model (its slowest shard, plus a further wave if some
+   of its tasks are still pending behind the CPU cap).
+4. **Wall-time risk.** Compare each shard's projected finish with its
+   `TIME_LEFT`. Flag **at risk** when the ETA exceeds ~80% of the time left,
+   and **will not finish** when it exceeds all of it — and say what that
+   costs (Stan cannot checkpoint: a killed task loses its whole chain) and
+   the options (let it run and resubmit the shard; cancel early and resubmit
+   on a longer partition; reduce draws for the resubmission).
+
+Template:
+
+```markdown
+**gam_lnr** — array 11385713, `long`, 4 tasks running since 2026-09-18 14:02 (1 d 6 h ago)
+
+| shard | node | elapsed | chain | iteration | phase | % | shard ETA | time left | risk |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | a40-03 | 30.1 h | 1 | 1200 / 1500 | sampling | 80% | ~8 h | 6.7 d | ok |
+|   |        |        | 2 | 1100 / 1500 | sampling | 73% |      |       |    |
+| 2 | a40-16 | 30.1 h | 1 | 700 / 1500 | warmup | 47% | ~35 h | 6.7 d | ok |
+|   |        |        | 2 | 600 / 1500 | warmup | 40% |      |       |    |
+
+Model ETA: ~35 h (shard 2 is the straggler). Nothing near the wall.
+```
+
+**How to extrapolate** (rough is fine; say it is rough):
+
+- rate = iterations done ÷ (elapsed − ~1–5 min of compile time); remaining
+  time = (total − done) ÷ rate. Chains in one shard run in parallel, so the
+  shard finishes with its slowest chain.
+- **Early warmup is slower than the rest** (the first ~100–150 iterations run
+  at max treedepth on a cold start), so an ETA taken during early warmup is
+  pessimistic, and one taken during sampling is the most reliable. Say which
+  phase the estimate is based on.
+- If a project documents a measured per-iteration cost for that model
+  (`s/iter`, a previous `REPORT` wall), prefer it over a guess and cite it.
+- cmdstanr refreshes its progress line sparsely, so the latest line can be
+  hours old; the true count is at least what is shown. When the estimate
+  hinges on it, also give the `.out` file's modification time.
+- Node placement changes speed 2–3×, so shards of one model on different
+  nodes can have very different ETAs; that is not by itself a problem.
 
 - Have every job print **one summary line** at the end (e.g. `REPORT <model>
   | wall | n_leapfrog | treedepth | stepsize | divergent | max Rhat | min
