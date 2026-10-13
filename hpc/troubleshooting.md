@@ -14,6 +14,7 @@ on Artemis. Add new ones in the same shape, with the date.
 | `invalid 'y' type in 'x && y'` reading CmdStan output | [Old cmdstanr](#old-cmdstanr) |
 | `Package collapse is installed, but package version ... is required` | [Version floor not met](#version-floor-not-met) |
 | `Rejecting initial value`, `Gradient evaluated at the initial value is not finite` | [Chains die at initialisation](#chains-die-at-initialisation) |
+| fewer chains than requested and no error, `finished unexpectedly`, exit status `-9`, `No chains finished successfully` with nothing on stderr | [Chains killed by a sibling task](#chains-killed-by-a-sibling-task) |
 | `PENDING (QOSMaxCpuPerUserLimit)` | [Pending on CPU limit](#pending-on-cpu-limit) |
 | `QOSGrpCpuLimit` at submission | [Rejected on sussexneuro](#rejected-on-sussexneuro) |
 | `User's group not permitted to use this partition` | [No sussexneuro access](#no-sussexneuro-access) |
@@ -96,6 +97,30 @@ root cause was a non-finite tail gradient, fixed in cogmod 0.3.3.
 **Fix**: check the cogmod version in the job log. With one chain per task a
 single rejection loses the task — two chains per task limits the damage.
 Resubmit the lost shard under a new id.
+
+### Chains killed by a sibling task
+
+Chains vanish mid-run, SIGKILLed (exit status `-9`), with nothing on stderr,
+and only in array tasks that share a node. **Cause** (2026-10-13, cogmod
+benchmarks; 16 and 20 of 96 chains in two arrays): processx below 3.9, which
+the module ships (3.8.2), tags every process cmdstanr starts with an id drawn
+from R's RNG plus the current second, and when `$sample()` returns cmdstanr's
+cleanup SIGKILLs every process on the node carrying its tags. Two tasks that
+`set.seed()` the same value before fitting, and start sampling on one node in
+the same second, share tags, and the first to finish kills the other's running
+chains. Different models are not safe from each other: after the same
+`set.seed()` their tags are the same sequence, shifted. cmdstanr then drops
+the killed chains and renumbers the rest 1..k, so the fit is just short; with
+every chain killed it stops with `No chains finished successfully`.
+`brm(seed = )` and `$sample(seed = )` seed CmdStan only, and an R session that
+never calls `set.seed()` seeds itself from the clock and its process id: our
+production `fit_model.R`s do this and are not exposed.
+**Fix**: no `set.seed()` before fitting in an array task. If starting values
+must be drawn reproducibly, draw them, then `set.seed(NULL)` before `brm()` /
+`$sample()` — CmdStan's own seed still makes the draws reproducible. Or put
+processx ≥ 3.9 (tag from `tempfile()`, not the RNG) in the project library.
+**Check**: `brms::nchains()` against what was requested, and
+`fit$return_codes()` when driving cmdstanr directly.
 
 ### Pending on CPU limit
 

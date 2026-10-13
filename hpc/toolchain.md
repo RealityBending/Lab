@@ -24,6 +24,7 @@ Verified on `dmm56`, 2026-09-22.
 | brms | 2.21.0 | **not from the module** (which ships 2.20.4) — see [the brms trap](#the-brms-trap) |
 | cmdstanr | ≥ 0.8 (0.9.0 installed), from the project library | the module's 0.7.1 **cannot read CmdStan ≥ 2.36 output** (fails with `invalid 'y' type in 'x && y'`) |
 | CmdStan | 2.39.0 in `~/.cmdstan` | built for GCC 12.3 |
+| processx | 3.8.2, from the module (seen 2026-10-13) | below 3.9 it tags cmdstanr's chain processes from R's RNG, so tasks that `set.seed()` alike can kill each other's chains: [troubleshooting](troubleshooting.md#chains-killed-by-a-sibling-task) |
 | project R library | `/mnt/lustre/users/<group>/<user>/cluster_R_libs/x86_64-pc-linux-gnu-library/4.3` | holds what the module lacks; precedes it on `R_LIBS` |
 | cogmod | ≥ 0.3.3 (`dev` branch) | see [cogmod](#cogmod) |
 

@@ -60,6 +60,10 @@ exit $status
   strip `\r` on push.
 - `XX_` is the project's variable prefix (`IGC_`, `FA_`, ...), so two
   projects can be driven from the same shell.
+- **Seed CmdStan, not R**: pass `seed =` to `brm()` / `$sample()`, and never
+  `set.seed()` before fitting in an array task (`set.seed(NULL)` after
+  drawing anything that needs it). Tasks that seed R alike can kill each
+  other's chains ([troubleshooting.md#chains-killed-by-a-sibling-task](troubleshooting.md#chains-killed-by-a-sibling-task)).
 
 ## Wall time
 
@@ -238,7 +242,9 @@ A clean exit is not proof of a complete result.
 - **Count what you expect**: a combined fit should have
   `shards × chains per shard` chains (`brms::nchains()`) and the matching
   draw count. Merges silently accept missing chains; five fits were once
-  found short this way.
+  found short this way. cmdstanr itself drops a chain it did not see finish
+  and renumbers the rest, so a shard can be short with no error at all
+  ([troubleshooting.md#chains-killed-by-a-sibling-task](troubleshooting.md#chains-killed-by-a-sibling-task)).
 - **Zero-byte or partial files** can be left behind by a failed write (and a
   failed `saveRDS` can bump the mtime of the previous file without changing
   it). Only the job's own "wrote ... with N draws" line proves success.
