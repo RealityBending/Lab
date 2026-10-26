@@ -68,10 +68,15 @@ then resubmit. Details: [toolchain.md#precompiled-header](toolchain.md#precompil
 
 ### Every model fails to compile
 
-On a fresh account, within ~40 s of `sbatch`. **Cause**: the account is not
-getting the brms the working account gets (the working one borrows it from a
-third-party library through `R_LIBS_USER`).
-**Fix**: see [toolchain.md#the-brms-trap](toolchain.md#the-brms-trap).
+On a fresh account, within a minute of the job starting (40 s on 2026-09-21,
+17 s on 2026-10-26), typically with
+`int[] sequence(int start, int end) {` and "Ill-formed type. Expected an
+unsized type in function signature". **Cause**: the account is not getting
+the brms the working account gets. The module's 2.20.4 writes array syntax
+CmdStan dropped in 2.33. The working account borrows 2.21.0 from a
+third-party library through `R_LIBS_USER`, set in its `~/.bashrc`.
+**Fix**: set `R_LIBS_USER` in the project's `.slurm` files, see
+[toolchain.md#the-brms-trap](toolchain.md#the-brms-trap).
 Suspect this first whenever a failure is environment-wide rather than
 model-specific.
 

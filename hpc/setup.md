@@ -58,14 +58,20 @@ cat ~/.bashrc ~/.Renviron 2>/dev/null
 - Old accounts' `~/.bashrc` may still `module load sge` and
   `module load easybuild/software`. Neither module exists; delete the lines
   (harmless otherwise, but every login prints two Lmod errors).
-- **Look for `R_LIBS_USER`** in `~/.bashrc` or `~/.Renviron`. On `dmm56` it
-  points at a third-party shared library (`/research/cisc2/shared/...`) that
-  silently supplies brms. That is the single biggest reason one account
-  works and another does not — read
+- **Look for `R_LIBS_USER`** in `~/.bashrc` or `~/.Renviron`. On `dmm56`,
+  `~/.bashrc` points it at a third-party shared library
+  (`/research/cisc2/shared/...`) that silently supplies brms. That is the
+  single biggest reason one account works and another does not — read
   [toolchain.md#the-brms-trap](toolchain.md#the-brms-trap) before copying it.
-- SLURM batch jobs do not source `~/.bashrc`, and our `.slurm` files set
-  `R_LIBS` explicitly, so jobs are insulated from both of these; interactive
-  sessions are not.
+  A project whose `.slurm` files set `R_LIBS_USER` themselves does not need
+  the line.
+- **Jobs are not insulated from either file** (corrected 2026-10-26). A batch
+  script does not read `~/.bashrc`, but `sbatch` copies the environment of
+  the shell that submitted it, and a driver submitting over ssh has read
+  `~/.bashrc`. Setting `R_LIBS` does not shut out `R_LIBS_USER`: R searches
+  both. `~/.Renviron` is read by R itself in every job: `dmm56`'s
+  `R_MAX_VSIZE=100Gb` capped a combine job's memory in IllusionGameComputational
+  on 2026-10-23.
 
 ### B2. Build the R library and CmdStan
 
@@ -96,7 +102,9 @@ The variant our jobs need is `model_header_threads_nochecks_12_3.hpp.gch`
 
 Run the project's smoke test (tiny data, `short` partition, own output dir —
 [jobs.md#test-runs](jobs.md#test-runs)). A fresh account that fails *every*
-model at compile time within a minute is the brms trap, not your model.
+model at compile time within a minute is the brms trap, not your model. If
+the project logs the brms it loaded, anything other than
+`brms 2.21.0 from /research/cisc2/...` shows it before the compile does.
 
 ## C. New project on an account
 

@@ -45,9 +45,12 @@ module use "${XX_EB_MODULES:-/mnt/shared/easybuild/modules/all}"
 module load "${XX_R_MODULE:-CmdStanR/0.7.1-foss-2023a-R-4.3.2}"
 # 3. project library first, so it shadows the module
 [ -z "${XX_R_LIBS:-}" ] || export R_LIBS="${XX_R_LIBS}${R_LIBS:+:$R_LIBS}"
+# 4. brms 2.21.0, whatever the account (toolchain.md#the-brms-trap)
+export R_LIBS_USER="${XX_R_LIBS_USER:-/research/cisc2/shared/cluster_R_libs/x86_64-pc-linux-gnu-library/4.2/}"
+Rscript -e 'cat("brms", format(packageVersion("brms")), "from", find.package("brms"), "\n")'
 
 Rscript fit_model.R
-status=$?                       # 4. propagate R's exit status
+status=$?                       # 5. propagate R's exit status
 echo "FINISHED at $(date '+%F %T') with status $status"
 exit $status
 ```
